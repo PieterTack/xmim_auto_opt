@@ -561,9 +561,11 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 
 				// store simulated intensity and corresponding concentrations
 				// and calculate scaling factor
-				if (k_sim[j] < k_exp[j] && k_sim[j] > k_sim_low[j] && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
-					k_sim_low[j] = k_sim[j];
-					weight_low[j] = weights_arr_quant[j];
+				if (k_sim[j] < k_exp[j] && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
+					if (k_sim[j] > k_sim_low[j]) {
+						k_sim_low[j] = k_sim[j];
+						weight_low[j] = weights_arr_quant[j];
+					}
 					// interpolate between known low and high value to obtain new scale estimate
 					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
 						scale[j] = (double) ( (k_exp[j]-k_sim_low[j]) / ((k_sim_high[j]-k_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
@@ -571,9 +573,11 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 					else scale[j] = k_exp[j]/k_sim[j];
 fprintf(stdout,"**Case1\n");
 				}
-				else if (l_sim[j] < l_exp[j] && l_sim[j] > l_sim_low[j] && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
-					l_sim_low[j] = l_sim[j];
-					weight_low[j] = weights_arr_quant[j];
+				else if (l_sim[j] < l_exp[j] && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
+					if (l_sim[j] > l_sim_low[j]) {
+						l_sim_low[j] = l_sim[j];
+						weight_low[j] = weights_arr_quant[j];
+					}
 					// interpolate between known low and high value to obtain new scale estimate
 					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
 						scale[j] = (double) ( (l_exp[j]-l_sim_low[j]) / ((l_sim_high[j]-l_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
@@ -581,9 +585,11 @@ fprintf(stdout,"**Case1\n");
 					else scale[j] = l_exp[j]/l_sim[j];
 fprintf(stdout,"**Case2\n");
 				}
-				else if (k_sim[j] > k_exp[j] && k_sim[j] < k_sim_high[j] && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
-					k_sim_high[j] = k_sim[j];
-					weight_high[j] = weights_arr_quant[j];
+				else if (k_sim[j] > k_exp[j] && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
+					if (k_sim[j] < k_sim_high[j]) {
+						k_sim_high[j] = k_sim[j];
+						weight_high[j] = weights_arr_quant[j];
+					}
 					// interpolate between known low and high value to obtain new scale estimate
 					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
 						scale[j] = (double) ( (k_exp[j]-k_sim_low[j]) / ((k_sim_high[j]-k_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
@@ -591,9 +597,11 @@ fprintf(stdout,"**Case2\n");
 					else scale[j] = k_exp[j]/k_sim[j];
 fprintf(stdout,"**Case3\n");
 				}
-				else if (l_sim[j] > l_exp[j] && l_sim[j] < l_sim_high[j] && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
-					l_sim_high[j] = l_sim[j];
-					weight_high[j] = weights_arr_quant[j];
+				else if (l_sim[j] > l_exp[j] && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
+					if (l_sim[j] < l_sim_high[j]) {
+						l_sim_high[j] = l_sim[j];
+						weight_high[j] = weights_arr_quant[j];
+					}
 					// interpolate between known low and high value to obtain new scale estimate
 					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
 						scale[j] = (double) ( (l_exp[j]-l_sim_low[j]) / ((l_sim_high[j]-l_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
@@ -606,7 +614,7 @@ fprintf(stdout,"**Case4\n");
 fprintf(stdout,"**Case5\n");
 				}
 
-				if (fabs(k_sim[j]/k_exp[j])-1. < 0.005 && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
+				if (fabs((k_exp[j]/k_sim[j])-1.) < 0.005 && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
 					scale[j] = 1.0;
 					//we have converged for this peak, yet it could be influenced by secondary excitation etc
 					//	so reset low and high values
@@ -616,7 +624,7 @@ fprintf(stdout,"**Case5\n");
 					weight_high[j] = 1.1;
 fprintf(stdout,"**Case6\n");
 				}
-				else if (fabs(l_sim[j]/l_exp[j])-1. < 0.005 && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
+				else if (fabs((l_exp[j]/l_sim[j])-1.) < 0.005 && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
 					scale[j] = 1.0;
 					//we have converged for this peak, yet it could be influenced by secondary excitation etc
 					//	so reset low and high values
