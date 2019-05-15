@@ -6,7 +6,7 @@
 #include <glib.h>
 #include <glib/gstdio.h>
 #include <xmi_msim.h>
-
+#include <float.h>
 
 #define XMI_PYMCA_START_CONC 0.0001
 #define XMI_PYMCA_MAX_ITERATIONS 100
@@ -182,7 +182,6 @@ int main(int argc, char *argv[])
 
 	double *channels;
         double **channels_conv;
-        double *channels_conv_temp2;
         double zero_sum;
         double *brute_history;
         double *var_red_history;
@@ -386,11 +385,24 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 	//fill up k_exp and l_exp
 	//contains the intensities of the experimental spectrum
 	double *energy_k, *energy_l; 
+	double *k_sim_low, *l_sim_low, *k_sim_high, *l_sim_high, *weight_low, *weight_high;
 	energy_k = g_malloc(sizeof(double)*XMO_N_Z_QUANT);
 	energy_l = g_malloc(sizeof(double)*XMO_N_Z_QUANT);
+	k_sim_low = g_malloc(sizeof(double)*XMO_N_Z_QUANT);
+	l_sim_low = g_malloc(sizeof(double)*XMO_N_Z_QUANT);
+	k_sim_high = g_malloc(sizeof(double)*XMO_N_Z_QUANT);
+	l_sim_high = g_malloc(sizeof(double)*XMO_N_Z_QUANT);
+	weight_low = g_malloc(sizeof(double)*XMO_N_Z_QUANT);
+	weight_high = g_malloc(sizeof(double)*XMO_N_Z_QUANT);
 	for (j = 0 ; j < XMO_N_Z_QUANT ; j++) {
 		energy_k[j] = LineEnergy(xi->composition->layers[xi->composition->reference_layer-1].Z[j], KA1_LINE);
 		energy_l[j] = LineEnergy(xi->composition->layers[xi->composition->reference_layer-1].Z[j], LA1_LINE);
+		k_sim_low[j] = 0.0;
+		l_sim_low[j] = 0.0;
+		k_sim_high[j] = DBL_MAX;
+		l_sim_high[j] = DBL_MAX;
+		weight_low[j] = 0.0;
+		weight_high[j] = 1.1; //110% w%... simply an impossibly high concentration
 #if DEBUG == 1
 	printf("--Energy KA1: %lf LA1: %lf keV\n",energy_k[j],energy_l[j]);
 #endif
@@ -449,6 +461,7 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 		//xmi_print_input(stdout,xi);
 		zero_sum = xmi_sum_double(channels, xi->detector->nchannels);
 		//convolute_spectrum
+        	double *channels_conv_temp2;
 		channels_conv_temp = (double **) g_malloc0(sizeof(double *)*(xi->general->n_interactions_trajectory+1));
 
 		for (j=(zero_sum > 0.0 ? 0 : 1) ; j <= xi->general->n_interactions_trajectory ; j++) {
@@ -460,6 +473,8 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 		if (xmi_write_output_xml(tempFile, xi, brute_history, options->use_variance_reduction == 1 ? var_red_history : NULL, channels_conv_temp, channels, xi->detector->nchannels, xmim_input, zero_sum > 0.0 ? 1 : 0, NULL) == 0) {
 			return 1;
 		}
+		free(channels_conv_temp);
+		free(channels_conv_temp2);
 #endif
 
 		//optimize concentrations
@@ -508,42 +523,23 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 //					l_sim[j] += ARRAY3D_FORTRAN(var_red_history, xi->composition->layers[xi->composition->reference_layer-1].Z[j], abs(L3M5_LINE),k,100,385,xi->general->n_interactions_trajectory) * calculate_detector_absorption(xi, xi->composition->layers[xi->composition->reference_layer-1].Z[j], L3M5_LINE);
 //				}
 
-				if (k_exp[j] > 1.0 && k_sim[j] > 0.0) {
-					scale[j] = k_exp[j]/k_sim[j];
-					if (fabs(scale[j]-1.0) < 0.05 ) scale[j] = 1.0;
-				}
-				else if (l_exp[j] > 1.0 && l_sim[j] > 0.0) {
-					scale[j] = l_exp[j]/l_sim[j];
-					if (fabs(scale[j]-1.0) < 0.05 ) scale[j] = 1.0;
-				}
-				else scale[j] = 1.0;
-				sum_scale += scale[j]*weights_arr_quant[j];
+//				if (k_exp[j] > 1.0 && k_sim[j] > 0.0) {
+//					scale[j] = k_exp[j]/k_sim[j];
+//					if (fabs(scale[j]-1.0) < 0.05 ) scale[j] = 1.0;
+//				}
+//				else if (l_exp[j] > 1.0 && l_sim[j] > 0.0) {
+//					scale[j] = l_exp[j]/l_sim[j];
+//					if (fabs(scale[j]-1.0) < 0.05 ) scale[j] = 1.0;
+//				}
+//				else scale[j] = 1.0;
+//				sum_scale += scale[j]*weights_arr_quant[j];
 
-				//K-lines
-				//make history_sum
-
-#if DEBUG == 1
-				fprintf(stdout,"Element :%i\n",xi->composition->layers[xi->composition->reference_layer-1].Z[j]);
-				fprintf(stdout,"k_exp[j]: %lf\n",k_exp[j]);
-				fprintf(stdout,"k_sim[j]: %lf\n",k_sim[j]);
-				fprintf(stdout,"l_exp[j]: %lf\n",l_exp[j]);
-				fprintf(stdout,"l_sim[j]: %lf\n",l_sim[j]);
-				fprintf(stdout,"scale[j]: %lf\n",scale[j]);
-	//			fprintf(stdout,"scatter_intensity from file: %lf\n",xp->scatter_intensity);
-	//			fprintf(stdout,"scatter_intensity from MC: %lf\n",ARRAY2D_FORTRAN(channels,xi->general->n_interactions_trajectory,rayleigh_channel,xi->general->n_interactions_trajectory+1,xp->nchannels));
-#endif
-
-			}
-			for (j = 0 ; j < XMO_N_Z_QUANT ; j++) {
 				//do not allow too large jumps!
 				//if weight <= 0.0001 then max is 100
 				//else if weight <= 0.01 then max is 10
 				//else if weight <= 0.1 then max is 2.5
 				//else if weight <= 0.25 then max is 1.5
 				//else if weight <= 0.375 then max is 1.20
-
-				//scale[j] /= sum_scale;
-
 				if (weights_arr_quant[j] <= 0.0001)
 					max_scale = 100.0;
 				else if (weights_arr_quant[j] <= 0.01)
@@ -563,18 +559,88 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 				else
 					max_scale = 1.01;
 
+				// store simulated intensity and corresponding concentrations
+				// and calculate scaling factor
+				if (k_sim[j] < k_exp[j] && k_sim[j] > k_sim_low[j] && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
+					k_sim_low[j] = k_sim[j];
+					weight_low[j] = weights_arr_quant[j];
+					// interpolate between known low and high value to obtain new scale estimate
+					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
+						scale[j] = (double) ( (k_exp[j]-k_sim_low[j]) / ((k_sim_high[j]-k_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
+					}
+					else scale[j] = k_exp[j]/k_sim[j];
+fprintf(stdout,"**Case1\n");
+				}
+				else if (l_sim[j] < l_exp[j] && l_sim[j] > l_sim_low[j] && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
+					l_sim_low[j] = l_sim[j];
+					weight_low[j] = weights_arr_quant[j];
+					// interpolate between known low and high value to obtain new scale estimate
+					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
+						scale[j] = (double) ( (l_exp[j]-l_sim_low[j]) / ((l_sim_high[j]-l_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
+					}
+					else scale[j] = l_exp[j]/l_sim[j];
+fprintf(stdout,"**Case2\n");
+				}
+				else if (k_sim[j] > k_exp[j] && k_sim[j] < k_sim_high[j] && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
+					k_sim_high[j] = k_sim[j];
+					weight_high[j] = weights_arr_quant[j];
+					// interpolate between known low and high value to obtain new scale estimate
+					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
+						scale[j] = (double) ( (k_exp[j]-k_sim_low[j]) / ((k_sim_high[j]-k_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
+					}
+					else scale[j] = k_exp[j]/k_sim[j];
+fprintf(stdout,"**Case3\n");
+				}
+				else if (l_sim[j] > l_exp[j] && l_sim[j] < l_sim_high[j] && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
+					l_sim_high[j] = l_sim[j];
+					weight_high[j] = weights_arr_quant[j];
+					// interpolate between known low and high value to obtain new scale estimate
+					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
+						scale[j] = (double) ( (l_exp[j]-l_sim_low[j]) / ((l_sim_high[j]-l_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
+					}
+					else scale[j] = l_exp[j]/l_sim[j];
+fprintf(stdout,"**Case4\n");
+				}
+				else {
+					scale[j] = 1.0;
+fprintf(stdout,"**Case5\n");
+				}
+
+				if (fabs(k_sim[j]/k_exp[j])-1. < 0.005 && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
+					scale[j] = 1.0;
+					//we have converged for this peak, yet it could be influenced by secondary excitation etc
+					//	so reset low and high values
+					k_sim_low[j] = 0.0;
+					k_sim_high[j] = DBL_MAX;
+					weight_low[j] = 0.0;
+					weight_high[j] = 1.1;
+fprintf(stdout,"**Case6\n");
+				}
+				else if (fabs(l_sim[j]/l_exp[j])-1. < 0.005 && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
+					scale[j] = 1.0;
+					//we have converged for this peak, yet it could be influenced by secondary excitation etc
+					//	so reset low and high values
+					l_sim_low[j] = 0.0;
+					l_sim_high[j] = DBL_MAX;
+					weight_low[j] = 0.0;
+					weight_high[j] = 1.1;
+fprintf(stdout,"**Case7\n");
+				}
+				sum_scale += scale[j]*weights_arr_quant[j]; //TODO: probably safe to remove this line and variable sum_scale
+
+
+				if (scale[j] > max_scale) {
+					weights_arr_quant[j] *=	max_scale;
+				}
+				else {
+					weights_arr_quant[j] *= scale[j];
+				}
 				if (k_exp[j] > 1.0 && k_sim[j] > 0.0  ) {
 					sum_temp = 0.0;
 					sum_temp += (k_exp[j]-k_sim[j])*(k_exp[j]-k_sim[j]);
 					sum_temp /= k_exp[j];
 					sum_temp /= k_exp[j];
 					sum_k += sum_temp;
-					if (scale[j] > max_scale) {
-						weights_arr_quant[j] *=	max_scale;
-					}
-					else {
-						weights_arr_quant[j] *= scale[j];
-					}
 				}
 				else if (l_exp[j] > 1.0 && l_sim[j] > 0.0  ) {
 					sum_temp = 0.0;
@@ -582,23 +648,93 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 					sum_temp /= l_exp[j];
 					sum_temp /= l_exp[j];
 					sum_l += sum_temp;
-					if (scale[j] > max_scale) {
-						weights_arr_quant[j] *=	max_scale;
-					}
-					else {
-						weights_arr_quant[j] *= scale[j];
-					}
 				}
+				//K-lines
+				//make history_sum
+
 //#if DEBUG == 1
-			fprintf(stdout,"Element :%i\n",xi->composition->layers[xi->composition->reference_layer-1].Z[j]);
-			fprintf(stdout,"k_exp[j]: %lf\n",k_exp[j]);
-			fprintf(stdout,"k_sim[j]: %lf\n",k_sim[j]);
-			fprintf(stdout,"l_exp[j]: %lf\n",l_exp[j]);
-			fprintf(stdout,"l_sim[j]: %lf\n",l_sim[j]);
-			fprintf(stdout,"scale[j]: %lf\n",scale[j]);
-			fprintf(stdout,"weight[j]: %lf\n",weights_arr_quant[j]);
+				fprintf(stdout,"Element :%i\n",xi->composition->layers[xi->composition->reference_layer-1].Z[j]);
+				if (k_sim[j] != 0.0) {
+					fprintf(stdout,"k_exp[j]: %lf\n",k_exp[j]);
+					fprintf(stdout,"k_sim[j]: %lf\n",k_sim[j]);
+				}
+				else if (l_sim[j] != 0.0) {
+					fprintf(stdout,"l_exp[j]: %lf\n",l_exp[j]);
+					fprintf(stdout,"l_sim[j]: %lf\n",l_sim[j]);
+				}
+				fprintf(stdout,"scale[j]: %lf\n",scale[j]);
+				fprintf(stdout,"weight[j]: %lf\n",weights_arr_quant[j]);
+	//			fprintf(stdout,"scatter_intensity from file: %lf\n",xp->scatter_intensity);
+	//			fprintf(stdout,"scatter_intensity from MC: %lf\n",ARRAY2D_FORTRAN(channels,xi->general->n_interactions_trajectory,rayleigh_channel,xi->general->n_interactions_trajectory+1,xp->nchannels));
 //#endif
+
 			}
+
+//			for (j = 0 ; j < XMO_N_Z_QUANT ; j++) {
+//				//do not allow too large jumps!
+//				//if weight <= 0.0001 then max is 100
+//				//else if weight <= 0.01 then max is 10
+//				//else if weight <= 0.1 then max is 2.5
+//				//else if weight <= 0.25 then max is 1.5
+//				//else if weight <= 0.375 then max is 1.20
+//
+//				//scale[j] /= sum_scale;
+//
+//				if (weights_arr_quant[j] <= 0.0001)
+//					max_scale = 100.0;
+//				else if (weights_arr_quant[j] <= 0.01)
+//					max_scale = 10.0;
+//				else if (weights_arr_quant[j] <= 0.1)
+//					max_scale = 2.5;
+//				else if (weights_arr_quant[j] <= 0.25)
+//					max_scale = 1.5;
+//				else if (weights_arr_quant[j] <= 0.375)
+//					max_scale = 1.2;
+//				else if (weights_arr_quant[j] <= 0.50)
+//					max_scale = 1.1;
+//				else if (weights_arr_quant[j] <= 0.6)
+//					max_scale = 1.05;
+//				else if (weights_arr_quant[j] <= 0.7)
+//					max_scale = 1.025;
+//				else
+//					max_scale = 1.01;
+//
+//				if (k_exp[j] > 1.0 && k_sim[j] > 0.0  ) {
+//					sum_temp = 0.0;
+//					sum_temp += (k_exp[j]-k_sim[j])*(k_exp[j]-k_sim[j]);
+//					sum_temp /= k_exp[j];
+//					sum_temp /= k_exp[j];
+//					sum_k += sum_temp;
+//					if (scale[j] > max_scale) {
+//						weights_arr_quant[j] *=	max_scale;
+//					}
+//					else {
+//						weights_arr_quant[j] *= scale[j];
+//					}
+//				}
+//				else if (l_exp[j] > 1.0 && l_sim[j] > 0.0  ) {
+//					sum_temp = 0.0;
+//					sum_temp += (l_exp[j]-l_sim[j])*(l_exp[j]-l_sim[j]);
+//					sum_temp /= l_exp[j];
+//					sum_temp /= l_exp[j];
+//					sum_l += sum_temp;
+//					if (scale[j] > max_scale) {
+//						weights_arr_quant[j] *=	max_scale;
+//					}
+//					else {
+//						weights_arr_quant[j] *= scale[j];
+//					}
+//				}
+//#if DEBUG == 1
+//			fprintf(stdout,"Element :%i\n",xi->composition->layers[xi->composition->reference_layer-1].Z[j]);
+//			fprintf(stdout,"k_exp[j]: %lf\n",k_exp[j]);
+//			fprintf(stdout,"k_sim[j]: %lf\n",k_sim[j]);
+//			fprintf(stdout,"l_exp[j]: %lf\n",l_exp[j]);
+//			fprintf(stdout,"l_sim[j]: %lf\n",l_sim[j]);
+//			fprintf(stdout,"scale[j]: %lf\n",scale[j]);
+//			fprintf(stdout,"weight[j]: %lf\n",weights_arr_quant[j]);
+//#endif
+//			}
 		}
 		//update energy intensities when required
 		if (use_rayleigh_normalization && xi->excitation->discrete[xi->excitation->n_discrete-1].energy > 0.0 && XMO_SCAT_INT > 0.0) {
@@ -627,6 +763,7 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 			if (i % 2 == 1) {
 				if (options->verbose)
 					g_fprintf(stdout, "Scaling beam intensity according to region of interest intensity integration\n");
+//        			double *channels_conv_temp2;
 //				xmi_detector_convolute_spectrum(inputFPtr, channels+xi->general->n_interactions_trajectory*xi->detector->nchannels, &channels_conv_temp2, options, escape_ratios_def, xi->general->n_interactions_trajectory);
 
 //				sum_roi = 0.0;
@@ -805,6 +942,12 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 	free(l_sim);
 	free(energy_k);
 	free(energy_l);
+	free(k_sim_low);
+	free(l_sim_low);
+	free(k_sim_high);
+	free(l_sim_high);
+	free(weight_low);
+	free(weight_high);
 
 //	//Let's spawn xmim and perform calculation for the current input file
 //	xmim_command = malloc(strlen("xmimsim --enable-opencl --enable-pile-up --spe-file xmim_opt ") + strlen(xmim_input) + 1);
