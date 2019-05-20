@@ -449,11 +449,12 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 		//launch simulation
 		if (options->verbose)
 			g_fprintf(stdout,"Simulating interactions\n");
-
+//if (i == 1) {
 		if (xmi_main_msim(inputFPtr, hdf5FPtr, 1, &channels, *options, &brute_history, &var_red_history, solid_angle_def) == 0) {
 			g_fprintf(stdout,"Error in xmi_main_msim\n");
 			return 1;
 		}
+//}
 		if (options->verbose)
 			g_fprintf(stdout,"Interactions simulation finished\n");
 #if DEBUG == 1
@@ -563,103 +564,137 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 				// store simulated intensity and corresponding concentrations
 				// and calculate scaling factor
 				if (k_sim[j] < k_exp[j] && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
-fprintf(stdout,"**Case1");
+#if DEBUG == 1
+	fprintf(stdout,"**Case1");
+#endif
 					if (k_sim[j] > k_sim_low[j]) {
+#if DEBUG == 1
 fprintf(stdout,"-");
+#endif
 						k_sim_low[j] = k_sim[j];
 						weight_low[j] = weights_arr_quant[j];
 					}
 					// interpolate between known low and high value to obtain new scale estimate
 					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
-						scale[j] = (double) ( (k_exp[j]-k_sim_low[j]) / ((k_sim_high[j]-k_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
+						scale[j] = ( (k_exp[j]-k_sim_low[j]) / ((k_sim_high[j]-k_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
 						//we should converge for this peak, yet it could be influenced by secondary excitation etc
 						//	so reset low and high values
 						k_sim_low[j] = 0.0;
 						k_sim_high[j] = DBL_MAX;
 						weight_low[j] = 0.0;
 						weight_high[j] = 1.1;
-fprintf(stdout,"a\n");
+#if DEBUG == 1
+	fprintf(stdout,"a\n");
+#endif
 					}
 					else {
 						scale[j] = k_exp[j]/k_sim[j];
-fprintf(stdout,"b\n");
+#if DEBUG == 1
+	fprintf(stdout,"b\n");
+#endif
 					}
 				}
 				else if (l_sim[j] < l_exp[j] && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
-fprintf(stdout,"**Case2");
+#if DEBUG == 1
+	fprintf(stdout,"**Case2");
+#endif
 					if (l_sim[j] > l_sim_low[j]) {
-fprintf(stdout,"-");
+#if DEBUG == 1
+	fprintf(stdout,"-");
+#endif
 						l_sim_low[j] = l_sim[j];
 						weight_low[j] = weights_arr_quant[j];
 					}
 					// interpolate between known low and high value to obtain new scale estimate
 					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
-						scale[j] = (double) ( (l_exp[j]-l_sim_low[j]) / ((l_sim_high[j]-l_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
+						scale[j] = ( (l_exp[j]-l_sim_low[j]) / ((l_sim_high[j]-l_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
 						//we should converge for this peak, yet it could be influenced by secondary excitation etc
 						//	so reset low and high values
 						l_sim_low[j] = 0.0;
 						l_sim_high[j] = DBL_MAX;
 						weight_low[j] = 0.0;
 						weight_high[j] = 1.1;
-fprintf(stdout,"a\n");
+#if DEBUG == 1
+	fprintf(stdout,"a\n");
+#endif
 					}
 					else {
 						scale[j] = l_exp[j]/l_sim[j];
-fprintf(stdout,"b\n");
+#if DEBUG == 1
+	fprintf(stdout,"b\n");
+#endif
 					}
 				}
 				else if (k_sim[j] > k_exp[j] && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
-fprintf(stdout,"**Case3");
+#if DEBUG == 1
+	fprintf(stdout,"**Case3");
+#endif
 					if (k_sim[j] < k_sim_high[j]) {
-fprintf(stdout,"-");
+#if DEBUG == 1
+	fprintf(stdout,"-");
+#endif
 						k_sim_high[j] = k_sim[j];
 						weight_high[j] = weights_arr_quant[j];
 					}
 					// interpolate between known low and high value to obtain new scale estimate
 					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
-						scale[j] = (double) ( (k_exp[j]-k_sim_low[j]) / ((k_sim_high[j]-k_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
+						scale[j] = ( (k_exp[j]-k_sim_low[j]) / ((k_sim_high[j]-k_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
 						//we should converge for this peak, yet it could be influenced by secondary excitation etc
 						//	so reset low and high values
 						k_sim_low[j] = 0.0;
 						k_sim_high[j] = DBL_MAX;
 						weight_low[j] = 0.0;
 						weight_high[j] = 1.1;
-fprintf(stdout,"a\n");
+#if DEBUG == 1
+	fprintf(stdout,"a\n");
+#endif
 					}
 					else {
 						scale[j] = k_exp[j]/k_sim[j];
-fprintf(stdout,"b\n");
+#if DEBUG == 1
+	fprintf(stdout,"b\n");
+#endif
 					}
 				}
 				else if (l_sim[j] > l_exp[j] && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
-fprintf(stdout,"**Case4");
+#if DEBUG == 1
+	fprintf(stdout,"**Case4");
+#endif
 					if (l_sim[j] < l_sim_high[j]) {
-fprintf(stdout,"-");
+#if DEBUG == 1
+	fprintf(stdout,"-");
+#endif
 						l_sim_high[j] = l_sim[j];
 						weight_high[j] = weights_arr_quant[j];
 					}
 					// interpolate between known low and high value to obtain new scale estimate
 					if (weight_low[j] > 0.0 && weight_high[j] < 1.) {
-						scale[j] = (double) ( (l_exp[j]-l_sim_low[j]) / ((l_sim_high[j]-l_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
+						scale[j] = ( (l_exp[j]-l_sim_low[j]) / ((l_sim_high[j]-l_sim_low[j])/(weight_high[j]-weight_low[j])) + weight_low[j]) / weights_arr_quant[j];
 						//we should converge for this peak, yet it could be influenced by secondary excitation etc
 						//	so reset low and high values
 						l_sim_low[j] = 0.0;
 						l_sim_high[j] = DBL_MAX;
 						weight_low[j] = 0.0;
 						weight_high[j] = 1.1;
-fprintf(stdout,"a\n");
+#if DEBUG == 1
+	fprintf(stdout,"a\n");
+#endif
 					}
 					else {
 						scale[j] = l_exp[j]/l_sim[j];
-fprintf(stdout,"b\n");
+#if DEBUG == 1
+	fprintf(stdout,"b\n");
+#endif
 					}
 				}
 				else {
 					scale[j] = 1.0;
-fprintf(stdout,"**Case5\n");
+#if DEBUG == 1
+	fprintf(stdout,"**Case5\n");
+#endif
 				}
 
-				if (fabs((k_exp[j]/k_sim[j])-1.) < 0.005 && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
+				if (fabs(k_sim[j]-k_exp[j]) < sqrt(k_sim[j]) && k_sim[j] > 0.0 && k_exp[j] > 1.0) {
 					scale[j] = 1.0;
 					//we have converged for this peak, yet it could be influenced by secondary excitation etc
 					//	so reset low and high values
@@ -667,9 +702,11 @@ fprintf(stdout,"**Case5\n");
 					k_sim_high[j] = DBL_MAX;
 					weight_low[j] = 0.0;
 					weight_high[j] = 1.1;
-fprintf(stdout,"**Case6\n");
+#if DEBUG == 1
+	fprintf(stdout,"**Case6\n");
+#endif
 				}
-				else if (fabs((l_exp[j]/l_sim[j])-1.) < 0.005 && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
+				else if (fabs(l_sim[j]-l_sim[j]) < sqrt(l_sim[j]) && l_sim[j] > 0.0 && l_exp[j] > 1.0) {
 					scale[j] = 1.0;
 					//we have converged for this peak, yet it could be influenced by secondary excitation etc
 					//	so reset low and high values
@@ -677,7 +714,9 @@ fprintf(stdout,"**Case6\n");
 					l_sim_high[j] = DBL_MAX;
 					weight_low[j] = 0.0;
 					weight_high[j] = 1.1;
-fprintf(stdout,"**Case7\n");
+#if DEBUG == 1
+	fprintf(stdout,"**Case7\n");
+#endif
 				}
 				sum_scale += scale[j]*weights_arr_quant[j]; //TODO: probably safe to remove this line and variable sum_scale
 
