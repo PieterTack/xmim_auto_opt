@@ -178,6 +178,7 @@ int main(int argc, char *argv[])
 
 //#if DEBUG == 1
 	options->verbose = 1;
+	options->use_sum_peaks = 1;
 //#endif
 
 	double *channels;
@@ -185,7 +186,7 @@ int main(int argc, char *argv[])
         double zero_sum;
         double *brute_history;
         double *var_red_history;
-        double sum_k, sum_l, sum_temp;
+        double sum_k, sum_l, sum_temp, sum_weights;
         struct xmi_solid_angle *solid_angle_def;
         char *xmi_input_string;
 
@@ -486,7 +487,7 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 
 			sum_k = sum_l = 0.0;
 			sum_scale = 0.0;
-
+			sum_weights = 0.0;
 
 			//convolute simulated spectrum so we can obtain channel intensities
 			double **channels_def_ptrs = g_malloc0(sizeof(double *) * (xi->general->n_interactions_trajectory+1));
@@ -497,7 +498,6 @@ printf("**%i, %lf\n", xi->composition->layers[xi->composition->reference_layer-1
 
 
 			for (j = XMO_N_Z_QUANT-1 ; j > -1 ; j--) { //TODO: it would be nicest to do this iteration from highest energy to lowest?
-	//TODO: also take into account poisson noise during iteration. Makes little sense to try otpimise 13cts to 0.5% precision...
 
 				k_sim[j] = 0.0;
 				l_sim[j] = 0.0;
@@ -827,6 +827,10 @@ fprintf(stdout,"-");
 //			fprintf(stdout,"weight[j]: %lf\n",weights_arr_quant[j]);
 //#endif
 //			}
+			//Normalize weights
+			for (j = 0 ; j < XMO_N_Z_QUANT ; j++) {
+				sum_weights += weights_arr_quant[j];
+			}
 		}
 		//update energy intensities when required
 		if (use_rayleigh_normalization && xi->excitation->discrete[xi->excitation->n_discrete-1].energy > 0.0 && XMO_SCAT_INT > 0.0) {
@@ -843,7 +847,7 @@ fprintf(stdout,"-");
 			}
 			if (i > 1) {
 				//update concentrations in input
-				xi->composition->layers[xi->composition->reference_layer-1].weight[i] = weights_arr_quant[i];
+				xi->composition->layers[xi->composition->reference_layer-1].weight[i] = weights_arr_quant[i]/sum_weights;
 				//g_free(xi->composition->layers[xp->ilay_pymca].Z);
 				//g_free(xi->composition->layers[xp->ilay_pymca].weight);
 				//xi->composition->layers[xp->ilay_pymca] = xmi_ilay_composition_pymca(matrix, xp, weights_arr_quant);
@@ -878,7 +882,7 @@ fprintf(stdout,"-");
 			}
 			else if (i % 2 == 0) {
 				//update concentrations in input
-				xi->composition->layers[xi->composition->reference_layer-1].weight[i] = weights_arr_quant[i];
+				xi->composition->layers[xi->composition->reference_layer-1].weight[i] = weights_arr_quant[i]/sum_weights;
 				//g_free(xi->composition->layers[xp->ilay_pymca].Z);
 				//g_free(xi->composition->layers[xp->ilay_pymca].weight);
 				//xi->composition->layers[xp->ilay_pymca] = xmi_ilay_composition_pymca(matrix, xp, weights_arr_quant);
@@ -886,7 +890,7 @@ fprintf(stdout,"-");
 		}
 		else {
 			//update concentrations in input
-			xi->composition->layers[xi->composition->reference_layer-1].weight[i] = weights_arr_quant[i];
+			xi->composition->layers[xi->composition->reference_layer-1].weight[i] = weights_arr_quant[i]/sum_weights;
 			//g_free(xi->composition->layers[xp->ilay_pymca].Z);
 			//g_free(xi->composition->layers[xp->ilay_pymca].weight);
 			//xi->composition->layers[xp->ilay_pymca] = xmi_ilay_composition_pymca(matrix, xp, weights_arr_quant);
